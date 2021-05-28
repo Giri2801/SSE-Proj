@@ -10,4 +10,4 @@ STEPS TO RUN
 - <function_name>: name of the C function that u wish to inspect
 - <key_var_name> : name of the key variable name that u feel is important and check whether all the variables that are dependent on key data are made 0 at the end of the function
 
-### check report.pdf file present in the repository for further details.
+check report.pdf file present in the repository for further details.
