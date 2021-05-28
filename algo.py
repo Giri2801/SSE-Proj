@@ -2,7 +2,7 @@ import os
 import time
 import sys
 
-# clang_path = sys.argv[1]
+# get inputs
 filename = sys.argv[1]
 func_name = sys.argv[2]
 imp_variable = sys.argv[3]
@@ -12,13 +12,12 @@ clang_path = "/home/shakti/Downloads/llvm-3.3.src/Release+Asserts/bin/clang"
 executable = filename.split('.')[0]
 
 
-#generate executable and dump
+#generate executable, .ll , .dot and dump
 os.system('gcc -g '+filename + ' -o '+executable)
 time.sleep(0.05)
 os.system(clang_path + ' -emit-llvm -S -g -O0 -c ' + filename + ' -o ' + executable + '.ll')
 os.system('python graph-llvm-ir/graph-llvm-ir ./' +executable + '.ll')
 os.system('objdump -d ' + executable + ' >temp.dump')
-
 time.sleep(0.05)
 
 # get return address of function
@@ -39,6 +38,8 @@ for i,line in enumerate(lines) :
         
 ff.close()
 # print(line_addr)
+
+
 #find line number of that using addr2line
 open('addr2line.txt', 'w').close()
 os.system('addr2line -e '+executable + ' '+line_addr + ' >addr2line.txt')
@@ -88,10 +89,11 @@ while 1 :
     if i>=len(li) :
         break
         
-
 out.close()
 
 print("Locals : ",variables)
+
+#construct graph from .dot file
 encrypt_path = func_name + '.dot'
 
 file = open(encrypt_path)
@@ -118,29 +120,36 @@ for line in lines:
       
 file.close()
 
+# do dfs to find dependency
 graph = adj
 graph_rev = rev_adj
-
 types = labels
-
 S = []
 visited = {}
+
+#root is the node where we start dfs, is_prev - bool variable, True if parent of root is a store node, else False
 def dfs(root,is_prev) :
     # print(root)
+    
+    #if already visited, return
     if visited.get(root,False) :
       return
+  
     visited[root] = True
+    
+    #if root is dependant on imp_variable
     if root in variables :
         S.append(root)
 
+    #if parent is store and root is an array access node
     if is_prev and "getelementptr inbounds" in types.get(root,""):
         
         label_val = types[root].split(',')[0].split('%')[-1]
-        # print("Found a label_val:",label_val)
+        # label_val is the required array variable which is assigned a value by parent (store) 
         if label_val in variables :
            dfs(label_val,False)
 
-
+    #if current node is store, do dfs for all incoming edges
     if "store" in types.get(root,"") :
         for k in graph_rev[root] :
             dfs(k,True)
@@ -156,6 +165,7 @@ print('')
 vars = S
 
 
+## run code and find values at end
 code = "b " + filename + ":" +ret_line + '\n'
 code += "set logging file gdb_run.txt\n"
 code += "set logging on\n"
@@ -167,6 +177,8 @@ code += "c\nq\ny\n"
 
 with open("cmd.txt", "w") as text_file:
     text_file.write(code)
+    text_file.close()
+    
 
 open('gdb_run.txt', 'w').close()
 os.system('gdb --command=cmd.txt ./'+executable + '>/dev/null 2>&1')
